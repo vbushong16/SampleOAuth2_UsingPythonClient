@@ -12,8 +12,9 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseServerError
 from django.conf import settings
 from django.core import serializers
+from . import models
 
-from app.services import qbo_api_call
+from app.services import qbo_api_call,qbo_api_call_invoice
 
 # Create your views here.
 def index(request):
@@ -28,6 +29,7 @@ def oauth(request):
     )
 
     url = auth_client.get_authorization_url([Scopes.ACCOUNTING])
+    # print(url)
     request.session['state'] = auth_client.state_token
     return redirect(url)
 
@@ -58,10 +60,10 @@ def callback(request):
     if error == 'access_denied':
         return redirect('app:index')
     
-    if state_tok is None:
-        return HttpResponseBadRequest()
-    elif state_tok != auth_client.state_token:  
-        return HttpResponse('unauthorized', status=401)
+    # if state_tok is None:
+    #     return HttpResponseBadRequest()
+    # elif state_tok != auth_client.state_token:  
+    #     return HttpResponse('unauthorized', status=401)
     
     auth_code = request.GET.get('code', None)
     realm_id = request.GET.get('realmId', None)
@@ -117,11 +119,39 @@ def qbo_request(request):
     if auth_client.realm_id is None:
         raise ValueError('Realm id not specified.')
     response = qbo_api_call(auth_client.access_token, auth_client.realm_id)
-    
+    Organization_pulled = json.loads(response.content)
+    company_name = Organization_pulled['CompanyInfo']['CompanyName']
+    code = Organization_pulled['CompanyInfo']['Id']
+    email = Organization_pulled['CompanyInfo']['Email']['Address']
+
+    print(code)
+    print(company_name)
+    print(email)
+
+    models.Organization.objects.create(code=code, company_name=company_name,email=email)
+
+
+
+    response2 = qbo_api_call_invoice(auth_client.access_token, auth_client.realm_id)
+    # print(response2)
+    invoices_pulled = json.loads(response2.content)
+    # print(len(invoices_pulled['QueryResponse']['Customer']))
+    # for i in range(0,len(invoices_pulled['QueryResponse']['Customer'])):
+        # print(invoices_pulled['QueryResponse']['Customer'][i]['DisplayName'],' ID: ',invoices_pulled['QueryResponse']['Customer'][i]['Id'])
+    # print(invoices_pulled['QueryResponse']['Invoice'][0].keys())
+    # print(invoices_pulled['QueryResponse']['Invoice'][1].keys())
+    # print(invoices_pulled['QueryResponse']['Invoice'][2].keys())
+
     if not response.ok:
         return HttpResponse(' '.join([response.content, str(response.status_code)]))
     else:
         return HttpResponse(response.content)
+
+    
+
+
+
+
 
 def user_info(request):
     auth_client = AuthClient(
