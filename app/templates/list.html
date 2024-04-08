@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content%}
+
+<div class = 'container'>
+    <h1>LIST.html</h1>
+        <ul>
+            {% for org in all_organizations%}
+                <li>{{org}}</li>
+                <ul>
+                    {% for cust in all_customers%}
+                        <li>{{cust}}</li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        </ul>
+
+</div>
+
+
+{% endblock %}

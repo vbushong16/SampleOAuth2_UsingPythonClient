@@ -1,0 +1,23 @@
+
+
+{% block content%}
+
+<div class ='container'>
+
+    <h1>Invoice.html</h1>
+    <h2>Enter pk to Pull customer Invoices!</h2>
+
+    <form action="" method="POST">
+        {% csrf_token %}
+            <div class="form-group">
+                <label for="pk">Customer ID:</label>
+                <input class="form-control" type="text" id="pk" name ='pk'>
+            </div>
+            <input class = 'btn btn-primary' type="submit">
+    </form>
+
+
+</div>
+
+
+{% endblock %}

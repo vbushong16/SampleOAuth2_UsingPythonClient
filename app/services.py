@@ -20,7 +20,7 @@ def qbo_api_call(access_token, realm_id):
     return requests.get('{0}{1}'.format(base_url, route), headers=headers)
     
 
-def qbo_api_call_invoice(access_token, realm_id):
+def qbo_api_call_customer(access_token, realm_id):
     """[summary]
     
     """
@@ -32,6 +32,7 @@ def qbo_api_call_invoice(access_token, realm_id):
 
     # route = '/v3/company/{0}/query?query=select * from Invoice&minorversion=69'.format(realm_id)
     route = "/v3/company/{0}/query?query=select * from Customer Where Metadata.LastUpdatedTime > '2015-03-01'&minorversion=69".format(realm_id)
+
     auth_header = 'Bearer {0}'.format(access_token)
     headers = {
         'Authorization': auth_header, 
@@ -39,6 +40,40 @@ def qbo_api_call_invoice(access_token, realm_id):
     }
     return requests.get('{0}{1}'.format(base_url, route), headers=headers)
     
+
+def qbo_api_call_invoice(access_token, realm_id, customer_id):
+    """[summary]
+    
+    """
+    if settings.ENVIRONMENT == 'production':
+        base_url = settings.QBO_BASE_PROD
+    else:
+        base_url =  settings.QBO_BASE_SANDBOX
+
+    route = "/v3/company/{first}/query?query=select * from Invoice where CustomerRef = '{last}'&minorversion=70".format(first = realm_id,last=customer_id)
+    auth_header = 'Bearer {0}'.format(access_token)
+    headers = {
+        'Authorization': auth_header, 
+        'Accept': 'application/json'
+    }
+    return requests.get('{0}{1}'.format(base_url, route), headers=headers)
+
+def qbo_api_call_invoice_pdf(access_token, realm_id, invoice_id):
+    """[summary]
+    
+    """
+    if settings.ENVIRONMENT == 'production':
+        base_url = settings.QBO_BASE_PROD
+    else:
+        base_url =  settings.QBO_BASE_SANDBOX
+
+    route = "/v3/company/{first}/invoice/{last}/pdf?minorversion=70".format(first = realm_id,last=invoice_id)
+    auth_header = 'Bearer {0}'.format(access_token)
+    headers = {
+        'Authorization': auth_header, 
+        'Accept': 'application/json'
+    }
+    return requests.get('{0}{1}'.format(base_url, route), headers=headers)
 
     # GET /v3/company/4620816365345759820/query?query=<selectStatement>&minorversion=54
 

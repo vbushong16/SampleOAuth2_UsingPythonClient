@@ -14,7 +14,77 @@ from django.conf import settings
 from django.core import serializers
 from . import models
 
-from app.services import qbo_api_call,qbo_api_call_invoice
+from app.services import qbo_api_call,qbo_api_call_invoice,qbo_api_call_customer,qbo_api_call_invoice_pdf
+
+from django.urls import reverse
+
+# Create your views here.
+def list(request):
+
+    all_organizations = models.Organization.objects.all()
+    all_customers = models.Customers.objects.all()
+    print(all_organizations)
+    print(all_customers)
+
+    context = {'all_organizations':all_organizations, 
+               'all_customers':all_customers}
+
+    return render(request, 'list.html',context=context)
+
+
+def delete(request):
+
+    if request.POST:
+        # delete the Org
+        pk = request.POST['pk']
+        try:
+            models.Organization.objects.get(code=pk).delete()
+            return redirect(reverse('app:list'))
+        except:
+            print('pk not found!')
+            return redirect(reverse('app:list'))
+    else:
+        return render(request, 'delete.html')
+    
+def qbo_invoice(request):
+
+    print(request.session.get('access_token',None))
+
+    # if request.POST:
+        # delete the Org
+    pk = 1
+    customer = models.Customers.objects.get(customer_id=pk)
+    print(customer.company_name)
+    auth_client = AuthClient(
+        settings.CLIENT_ID, 
+        settings.CLIENT_SECRET, 
+        settings.REDIRECT_URI, 
+        settings.ENVIRONMENT, 
+        access_token=request.session.get('access_token', None), 
+        refresh_token=request.session.get('refresh_token', None), 
+        realm_id=request.session.get('realm_id', None),
+        )
+    if auth_client.access_token is not None:
+        access_token = auth_client.access_token
+
+    if auth_client.realm_id is None:
+        raise ValueError('Realm id not specified.')
+
+    
+    response = qbo_api_call_invoice(auth_client.access_token, auth_client.realm_id,customer.customer_id)
+            # print(response)
+    
+    invoice_pulled = json.loads(response.content)
+    print(invoice_pulled)
+    invoice_id = invoice_pulled['QueryResponse']['Invoice'][1]['Id']
+    print(invoice_id)
+    response_2 = qbo_api_call_invoice_pdf(auth_client.access_token, auth_client.realm_id,invoice_id)
+    print(response_2)
+
+
+
+    return render(request, 'invoice.html')
+
 
 # Create your views here.
 def index(request):
@@ -102,6 +172,48 @@ def connected(request):
     else:
         return render(request, 'connected.html', context={'openid': False})
 
+def qbo_customer(request):
+    auth_client = AuthClient(
+        settings.CLIENT_ID, 
+        settings.CLIENT_SECRET, 
+        settings.REDIRECT_URI, 
+        settings.ENVIRONMENT, 
+        access_token=request.session.get('access_token', None), 
+        refresh_token=request.session.get('refresh_token', None), 
+        realm_id=request.session.get('realm_id', None),
+    )
+
+    organization = models.Organization.objects.get(code='1')
+
+    if auth_client.access_token is not None:
+        access_token = auth_client.access_token
+
+    if auth_client.realm_id is None:
+        raise ValueError('Realm id not specified.')
+
+    response = qbo_api_call_customer(auth_client.access_token, auth_client.realm_id)
+    # print(response)
+    customer_pulled = json.loads(response.content)
+    # print(len(invoices_pulled['QueryResponse']['Customer']))
+    for i in range(0,len(customer_pulled['QueryResponse']['Customer'])):
+        # print(invoices_pulled['QueryResponse']['Customer'][i]['DisplayName'],' ID: ',invoices_pulled['QueryResponse']['Customer'][i]['Id'])
+        customer_id = customer_pulled['QueryResponse']['Customer'][i].get('Id')
+        company_name = customer_pulled['QueryResponse']['Customer'][i].get('DisplayName')
+        display_name = customer_pulled['QueryResponse']['Customer'][i].get('DisplayName')
+
+        if customer_pulled['QueryResponse']['Customer'][i].get('PrimaryEmailAddr','') == '':
+            email = ''
+        else:
+            email = customer_pulled['QueryResponse']['Customer'][i]['PrimaryEmailAddr']['Address']
+        company_code = organization
+        models.Customers.objects.create(customer_id=customer_id, company_name=company_name, display_name= display_name,email=email,company_code=company_code)
+
+    if not response.ok:
+        return HttpResponse(' '.join([response.content, str(response.status_code)]))
+    else:
+        return HttpResponse(response.content)
+
+
 def qbo_request(request):
     auth_client = AuthClient(
         settings.CLIENT_ID, 
@@ -130,8 +242,6 @@ def qbo_request(request):
 
     models.Organization.objects.create(code=code, company_name=company_name,email=email)
 
-
-
     response2 = qbo_api_call_invoice(auth_client.access_token, auth_client.realm_id)
     # print(response2)
     invoices_pulled = json.loads(response2.content)
@@ -146,12 +256,7 @@ def qbo_request(request):
         return HttpResponse(' '.join([response.content, str(response.status_code)]))
     else:
         return HttpResponse(response.content)
-
     
-
-
-
-
 
 def user_info(request):
     auth_client = AuthClient(
